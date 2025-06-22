@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Duel Arena</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            color: #00ffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: bold;
+            text-shadow: 0 0 20px #00ffff;
+            margin-bottom: 10px;
+            animation: titleGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes titleGlow {
+            from { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff; }
+            to { text-shadow: 0 0 30px #00ffff, 0 0 40px #00ffff, 0 0 50px #00ffff; }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            color: #ff6b6b;
+        }
+
+        /* Arena */
+        .arena {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-grow: 1;
+        }
+
+        /* Fighter cards */
+        .fighter {
+            background: linear-gradient(145deg, rgba(0, 255, 255, 0.1), rgba(0, 255, 255, 0.05));
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fighter::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ffff, #ff6b6b, #00ff00, #ffff00);
+            border-radius: 15px;
+            z-index: -1;
+            animation: borderRotate 3s linear infinite;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .fighter.active::before {
+            opacity: 0.7;
+        }
+
+        @keyframes borderRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fighter-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .player {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+
+        .cpu {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        /* Stats bars */
+        .stats {
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            margin-bottom: 15px;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .stat-bar {
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.5s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hp-fill {
+            background: linear-gradient(90deg, #ff6b6b, #ff9f43);
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+        }
+
+        .energy-fill {
+            background: linear-gradient(90deg, #00ffff, #0099ff);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        /* Action buttons */
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .action-btn {
+            padding: 15px 20px;
+            border: 2px solid;
+            border-radius: 10px;
+            background: transparent;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .action-btn:hover::before {
+            left: 100%;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .attack-btn {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .attack-btn:hover {
+            background: rgba(255, 107, 107, 0.1);
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .dodge-btn {
+            border-color: #ffff00;
+            color: #ffff00;
+        }
+
+        .dodge-btn:hover {
+            background: rgba(255, 255, 0, 0.1);
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.3);
+        }
+
+        .charge-btn {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+
+        .charge-btn:hover {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        .special-btn {
+            border-color: #ff00ff;
+            color: #ff00ff;
+            grid-column: 1 / -1;
+        }
+
+        .special-btn:hover {
+            background: rgba(255, 0, 255, 0.1);
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Battle log */
+        .battle-log {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .battle-log h3 {
+            margin-bottom: 15px;
+            color: #00ffff;
+            text-align: center;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            animation: logEntry 0.5s ease;
+        }
+
+        @keyframes logEntry {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Game over modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: modalFade 0.5s ease;
+        }
+
+        @keyframes modalFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: linear-gradient(145deg, rgba(0, 255, 255, 0.1), rgba(0, 255, 255, 0.05));
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            position: relative;
+            animation: modalSlide 0.5s ease;
+        }
+
+        @keyframes modalSlide {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .victory {
+            color: #00ff00;
+        }
+
+        .defeat {
+            color: #ff6b6b;
+        }
+
+        .play-again-btn {
+            padding: 15px 30px;
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            background: transparent;
+            color: #00ffff;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 20px;
+        }
+
+        .play-again-btn:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+
+            .arena {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .actions {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .special-btn {
+                grid-column: 1;
+            }
+
+            .container {
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .title {
+                font-size: 1.5rem;
+            }
+
+            .fighter {
+                padding: 15px;
+            }
+
+            .action-btn {
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Damage animation */
+        @keyframes damageShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .damage {
+            animation: damageShake 0.5s ease;
+        }
+
+        /* Special attack animation */
+        @keyframes specialAttack {
+            0% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 0, 255, 0.7); }
+            50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(255, 0, 255, 0.7); }
+            100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 0, 255, 0.7); }
+        }
+
+        .special {
+            animation: specialAttack 0.8s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">AI DUEL ARENA</h1>
+            <p class="subtitle">Digital Warriors Combat System</p>
+        </div>
+
+        <div class="arena">
+            <!-- Player Fighter -->
+            <div class="fighter player" id="playerFighter">
+                <h2 class="fighter-name">PLAYER</h2>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-label">
+                            <span>HP</span>
+                            <span id="playerHpText">100/100</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill hp-fill" id="playerHpBar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">
+                            <span>ENERGY</span>
+                            <span id="playerEnergyText">0/100</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill energy-fill" id="playerEnergyBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CPU Fighter -->
+            <div class="fighter cpu" id="cpuFighter">
+                <h2 class="fighter-name">AI OPPONENT</h2>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-label">
+                            <span>HP</span>
+                            <span id="cpuHpText">100/100</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill hp-fill" id="cpuHpBar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">
+                            <span>ENERGY</span>
+                            <span id="cpuEnergyText">0/100</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-fill energy-fill" id="cpuEnergyBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="actions" id="actions">
+            <button class="action-btn attack-btn" onclick="playerAction('attack')">Attack</button>
+            <button class="action-btn dodge-btn" onclick="playerAction('dodge')">Dodge</button>
+            <button class="action-btn charge-btn" onclick="playerAction('charge')">Charge</button>
+            <button class="action-btn special-btn" onclick="playerAction('special')" id="specialBtn" disabled>
+                Special Attack (30 Energy)
+            </button>
+        </div>
+
+        <!-- Battle log -->
+        <div class="battle-log">
+            <h3>BATTLE LOG</h3>
+            <div id="battleLog"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal" id="gameOverModal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="gameResult">VICTORY</h2>
+            <p id="gameResultText">Combat simulation complete</p>
+            <button class="play-again-btn" onclick="startNewGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            player: { hp: 100, maxHp: 100, energy: 0, maxEnergy: 100, lastAction: '' },
+            cpu: { hp: 100, maxHp: 100, energy: 0, maxEnergy: 100, lastAction: '' },
+            gameOver: false,
+            playerTurn: true
+        };
+
+        // Initialize game
+        function initGame() {
+            updateUI();
+            logMessage('Combat initialized. Choose your action!');
+        }
+
+        // Player action handler
+        function playerAction(action) {
+            if (gameState.gameOver || !gameState.playerTurn) return;
+
+            gameState.playerTurn = false;
+            disableActions();
+
+            // Execute player action
+            executeAction('player', action);
+
+            // CPU turn after delay
+            setTimeout(() => {
+                if (!gameState.gameOver) {
+                    cpuAction();
+                }
+            }, 1500);
+        }
+
+        // CPU action AI
+        function cpuAction() {
+            let action = 'attack'; // default
+            
+            // Simple AI logic
+            const cpuData = gameState.cpu;
+            const playerData = gameState.player;
+            
+            if (cpuData.energy >= 30 && Math.random() < 0.4) {
+                action = 'special'; // 40% chance to use special if available
+            } else if (cpuData.energy < 20 && Math.random() < 0.5) {
+                action = 'charge'; // 50% chance to charge if low energy
+            } else if (playerData.lastAction === 'charge' && Math.random() < 0.7) {
+                action = 'attack'; // 70% chance to attack if player charged
+            } else if (Math.random() < 0.3) {
+                action = 'dodge'; // 30% chance to dodge
+            } else if (Math.random() < 0.3) {
+                action = 'charge'; // 30% chance to charge
+            }
+
+            executeAction('cpu', action);
+
+            setTimeout(() => {
+                if (!gameState.gameOver) {
+                    gameState.playerTurn = true;
+                    enableActions();
+                }
+            }, 1500);
+        }
+
+        // Execute action
+        function executeAction(actor, action) {
+            const actorData = gameState[actor];
+            const opponent = actor === 'player' ? 'cpu' : 'player';
+            const opponentData = gameState[opponent];
+            
+            actorData.lastAction = action;
+
+            switch (action) {
+                case 'attack':
+                    if (opponentData.lastAction === 'dodge') {
+                        logMessage(`${actor.toUpperCase()} attacks but ${opponent.toUpperCase()} dodged!`);
+                    } else {
+                        const damage = Math.floor(Math.random() * 20) + 15; // 15-35 damage
+                        opponentData.hp = Math.max(0, opponentData.hp - damage);
+                        logMessage(`${actor.toUpperCase()} attacks for ${damage} damage!`);
+                        animateDamage(opponent);
+                    }
+                    break;
+
+                case 'dodge':
+                    logMessage(`${actor.toUpperCase()} prepares to dodge the next attack!`);
+                    break;
+
+                case 'charge':
+                    const energyGain = 10;
+                    actorData.energy = Math.min(actorData.maxEnergy, actorData.energy + energyGain);
+                    logMessage(`${actor.toUpperCase()} charges up! (+${energyGain} energy)`);
+                    break;
+
+                case 'special':
+                    if (actorData.energy >= 30) {
+                        actorData.energy -= 30;
+                        if (opponentData.lastAction === 'dodge') {
+                            logMessage(`${actor.toUpperCase()} unleashes special attack but ${opponent.toUpperCase()} dodged!`);
+                        } else {
+                            const damage = Math.floor(Math.random() * 25) + 40; // 40-65 damage
+                            opponentData.hp = Math.max(0, opponentData.hp - damage);
+                            logMessage(`${actor.toUpperCase()} unleashes SPECIAL ATTACK for ${damage} damage!`);
+                            animateSpecial(actor);
+                            animateDamage(opponent);
+                        }
+                    }
+                    break;
+            }
+
+            updateUI();
+            checkGameOver();
+        }
+
+        // Update UI
+        function updateUI() {
+            // Update player stats
+            document.getElementById('playerHpText').textContent = `${gameState.player.hp}/${gameState.player.maxHp}`;
+            document.getElementById('playerEnergyText').textContent = `${gameState.player.energy}/${gameState.player.maxEnergy}`;
+            document.getElementById('playerHpBar').style.width = `${(gameState.player.hp / gameState.player.maxHp) * 100}%`;
+            document.getElementById('playerEnergyBar').style.width = `${(gameState.player.energy / gameState.player.maxEnergy) * 100}%`;
+
+            // Update CPU stats
+            document.getElementById('cpuHpText').textContent = `${gameState.cpu.hp}/${gameState.cpu.maxHp}`;
+            document.getElementById('cpuEnergyText').textContent = `${gameState.cpu.energy}/${gameState.cpu.maxEnergy}`;
+            document.getElementById('cpuHpBar').style.width = `${(gameState.cpu.hp / gameState.cpu.maxHp) * 100}%`;
+            document.getElementById('cpuEnergyBar').style.width = `${(gameState.cpu.energy / gameState.cpu.maxEnergy) * 100}%`;
+
+            // Update special button
+            const specialBtn = document.getElementById('specialBtn');
+            specialBtn.disabled = gameState.player.energy < 30;
+
+            // Update active fighter indicator
+            if (gameState.playerTurn) {
+                document.getElementById('playerFighter').classList.add('active');
+                document.getElementById('cpuFighter').classList.remove('active');
+            } else {
+                document.getElementById('playerFighter').classList.remove('active');
+                document.getElementById('cpuFighter').classList.add('active');
+            }
+        }
+
+        // Log message
+        function logMessage(message) {
+            const log = document.getElementById('battleLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = message;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+
+            // Keep only last 10 messages
+            while (log.children.length > 10) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        // Animate damage
+        function animateDamage(target) {
+            const element = document.getElementById(target + 'Fighter');
+            element.classList.add('damage');
+            setTimeout(() => element.classList.remove('damage'), 500);
+        }
+
+        // Animate special attack
+        function animateSpecial(actor) {
+            const element = document.getElementById(actor + 'Fighter');
+            element.classList.add('special');
+            setTimeout(() => element.classList.remove('special'), 800);
+        }
+
+        // Disable/Enable actions
+        function disableActions() {
+            const buttons = document.querySelectorAll('.action-btn');
+            buttons.forEach(btn => btn.disabled = true);
+        }
+
+        function enableActions() {
+            const buttons = document.querySelectorAll('.action-btn');
+            buttons.forEach(btn => {
+                if (btn.id === 'specialBtn') {
+                    btn.disabled = gameState.player.energy < 30;
+                } else {
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        // Check game over
+        function checkGameOver() {
+            if (gameState.player.hp <= 0) {
+                gameState.gameOver = true;
+                showGameOver('defeat');
+            } else if (gameState.cpu.hp <= 0) {
+                gameState.gameOver = true;
+                showGameOver('victory');
+            }
+        }
+
+        // Show game over modal
+        function showGameOver(result) {
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('gameResult');
+            const text = document.getElementById('gameResultText');
+
+            if (result === 'victory') {
+                title.textContent = 'VICTORY';
+                title.className = 'modal-title victory';
+                text.textContent = 'AI Opponent has been defeated!';
+            } else {
+                title.textContent = 'DEFEAT';
+                title.className = 'modal-title defeat';
+                text.textContent = 'You have been eliminated!';
+            }
+
+            modal.classList.add('active');
+            disableActions();
+        }
+
+        // Start new game
+        function startNewGame() {
+            // Reset game state
+            gameState = {
+                player: { hp: 100, maxHp: 100, energy: 0, maxEnergy: 100, lastAction: '' },
+                cpu: { hp: 100, maxHp: 100, energy: 0, maxEnergy: 100, lastAction: '' },
+                gameOver: false,
+                playerTurn: true
+            };
+
+            // Clear battle log
+            document.getElementById('battleLog').innerHTML = '';
+
+            // Hide modal
+            document.getElementById('gameOverModal').classList.remove('active');
+
+            // Restart game
+            initGame();
+            enableActions();
+        }
+
+        // Initialize game on load
+        initGame();
+        enableActions();
+    </script>
+</body>
+</html>
